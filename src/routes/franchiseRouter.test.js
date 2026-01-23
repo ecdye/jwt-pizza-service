@@ -18,7 +18,6 @@ beforeAll(async () => {
   franchiseAdminUser = franchiseData.user;
 });
 
-// Test getFranchises
 test('list all franchises', async () => {
   const res = await request(app).get('/api/franchise');
   expect(res.status).toBe(200);
@@ -27,7 +26,6 @@ test('list all franchises', async () => {
   expect(Array.isArray(res.body.franchises)).toBe(true);
 });
 
-// Test createFranchise - success
 test('create franchise as admin', async () => {
   const franchiseData = {
     name: randomName('TestFranchise'),
@@ -48,7 +46,6 @@ test('create franchise as admin', async () => {
   testFranchiseId = res.body.id;
 });
 
-// Test createFranchise - unauthorized (non-admin)
 test('create franchise fails without admin role', async () => {
   const franchiseData = {
     name: randomName('TestFranchise'),
@@ -64,7 +61,6 @@ test('create franchise fails without admin role', async () => {
   expect(res.body.message).toBe('unable to create a franchise');
 });
 
-// Test createFranchise - no auth token
 test('create franchise fails without auth token', async () => {
   const franchiseData = {
     name: randomName('TestFranchise'),
@@ -76,7 +72,6 @@ test('create franchise fails without auth token', async () => {
   expect(res.status).toBe(401);
 });
 
-// Test getUserFranchises
 test('get user franchises', async () => {
   const res = await request(app)
     .get(`/api/franchise/${franchiseAdminUser.id}`)
@@ -88,7 +83,6 @@ test('get user franchises', async () => {
   expect(userFranchise).toBeDefined();
 });
 
-// Test getUserFranchises - admin can view any user's franchises
 test('admin can get any user franchises', async () => {
   const res = await request(app)
     .get(`/api/franchise/${franchiseAdminUser.id}`)
@@ -98,7 +92,6 @@ test('admin can get any user franchises', async () => {
   expect(Array.isArray(res.body)).toBe(true);
 });
 
-// Test getUserFranchises - unauthorized (different user)
 test('cannot get another user franchises without permission', async () => {
   const otherData = await createAndLoginUser({ roles: [{ role: Role.Diner }] });
 
@@ -110,7 +103,6 @@ test('cannot get another user franchises without permission', async () => {
   expect(res.body).toEqual([]);
 });
 
-// Test createStore - as franchise admin
 test('create store as franchise admin', async () => {
   const storeData = {
     name: randomName('TestStore'),
@@ -128,7 +120,6 @@ test('create store as franchise admin', async () => {
   testStoreId = res.body.id;
 });
 
-// Test createStore - as admin
 test('create store as admin', async () => {
   const storeData = {
     name: randomName('AdminStore'),
@@ -144,7 +135,6 @@ test('create store as admin', async () => {
   expect(res.body.name).toBe(storeData.name);
 });
 
-// Test createStore - unauthorized (not franchise admin or global admin)
 test('create store fails without proper authorization', async () => {
   const otherData = await createAndLoginUser({ roles: [{ role: Role.Diner }] });
 
@@ -161,7 +151,6 @@ test('create store fails without proper authorization', async () => {
   expect(res.body.message).toBe('unable to create a store');
 });
 
-// Test deleteStore - as franchise admin
 test('delete store as franchise admin', async () => {
   const res = await request(app)
     .delete(`/api/franchise/${testFranchiseId}/store/${testStoreId}`)
@@ -171,7 +160,6 @@ test('delete store as franchise admin', async () => {
   expect(res.body.message).toBe('store deleted');
 });
 
-// Test deleteStore - unauthorized
 test('delete store fails without proper authorization', async () => {
   // Create another store to delete
   const storeData = { name: randomName('StoreToDelete') };
@@ -191,8 +179,7 @@ test('delete store fails without proper authorization', async () => {
   expect(res.body.message).toBe('unable to delete a store');
 });
 
-// Test deleteFranchise
-test('delete franchise', async () => {
+test('delete franchise as admin', async () => {
   const res = await request(app)
     .delete(`/api/franchise/${testFranchiseId}`)
     .set('Authorization', `Bearer ${adminAuthToken}`);
@@ -201,7 +188,35 @@ test('delete franchise', async () => {
   expect(res.body.message).toBe('franchise deleted');
 });
 
-// Test createStore on non-existent franchise
+test('delete franchise fails without admin role', async () => {
+  // Create a franchise first
+  const franchiseData = {
+    name: randomName('ToDelete'),
+    admins: [{ email: franchiseAdminUser.email }],
+  };
+
+  const createRes = await request(app)
+    .post('/api/franchise')
+    .set('Authorization', `Bearer ${adminAuthToken}`)
+    .send(franchiseData);
+  const franchiseId = createRes.body.id;
+
+  // Try to delete as non-admin
+  const res = await request(app)
+    .delete(`/api/franchise/${franchiseId}`)
+    .set('Authorization', `Bearer ${franchiseAdminAuthToken}`);
+
+  expect(res.status).toBe(403);
+  expect(res.body.message).toBe('unable to delete a franchise');
+});
+
+// Test deleteFranchise - fails without auth
+test('delete franchise fails without auth token', async () => {
+  const res = await request(app).delete('/api/franchise/999');
+
+  expect(res.status).toBe(401);
+});
+
 test('create store fails on non-existent franchise', async () => {
   const storeData = {
     name: randomName('TestStore'),
