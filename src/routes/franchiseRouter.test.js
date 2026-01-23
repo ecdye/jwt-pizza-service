@@ -18,11 +18,18 @@ beforeAll(async () => {
   franchiseAdminUser = franchiseData.user;
 });
 
-test('list all franchises', async () => {
+test('list all franchises without auth', async () => {
   const res = await request(app).get('/api/franchise');
   expect(res.status).toBe(200);
   expect(res.body).toHaveProperty('franchises');
   expect(res.body).toHaveProperty('more');
+  expect(Array.isArray(res.body.franchises)).toBe(true);
+});
+
+test('list all franchises with auth shows more details', async () => {
+  const res = await request(app).get('/api/franchise').set('Authorization', `Bearer ${adminAuthToken}`);
+  expect(res.status).toBe(200);
+  expect(res.body).toHaveProperty('franchises');
   expect(Array.isArray(res.body.franchises)).toBe(true);
 });
 

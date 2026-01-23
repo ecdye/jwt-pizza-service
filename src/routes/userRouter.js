@@ -41,8 +41,18 @@ userRouter.put(
     const { name, email, password } = req.body;
     const userId = Number(req.params.userId);
     const user = req.user;
+
+    // Authorization check
     if (user.id !== userId && !user.isRole(Role.Admin)) {
       return res.status(403).json({ message: 'unauthorized' });
+    }
+
+    // Input validation
+    if (email !== undefined && email.trim() === '') {
+      return res.status(400).json({ message: 'email cannot be empty' });
+    }
+    if (name !== undefined && name.trim() === '') {
+      return res.status(400).json({ message: 'name cannot be empty' });
     }
 
     const updatedUser = await DB.updateUser(userId, name, email, password);
