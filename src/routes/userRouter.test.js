@@ -1,6 +1,5 @@
 const request = require('supertest');
-const app = require('../service');
-const { Role, DB } = require('../database/database');
+const { app, Role, createAdminUser, loginUser } = require('./testHelper');
 
 let testUser;
 let testUserAuthToken;
@@ -8,10 +7,10 @@ let testUserId;
 
 beforeAll(async () => {
         const user = await createAdminUser();
-        const loginRes = await request(app).put('/api/auth').send(user);
-        testUserAuthToken = loginRes.body.token;
-        testUserId = loginRes.body.user.id;
-        testUser = loginRes.body.user;
+        const loginData = await loginUser(user);
+        testUserAuthToken = loginData.token;
+        testUserId = loginData.userId;
+        testUser = loginData.user;
 });
 
 test('update', async () => {
@@ -23,12 +22,3 @@ test('update', async () => {
         delete expectedUser.password;
         expect(getRes.body.user).toMatchObject(expectedUser);
 });
-
-async function createAdminUser() {
-        let user = { password: 'b', roles: [{ role: Role.Admin }] };
-        user.name = Math.random().toString(36).substring(2, 12);
-        user.email = user.name + '@admin.com';
-
-        user = await DB.addUser(user);
-        return { ...user, password: 'b' };
-}
