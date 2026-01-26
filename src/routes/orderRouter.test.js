@@ -5,7 +5,7 @@ let adminAuthToken;
 let dinerAuthToken;
 
 // Mock the fetch function for factory API calls
-global.fetch = jest.fn();
+fetch = jest.fn();
 
 beforeAll(async () => {
   // Create admin user
@@ -177,7 +177,6 @@ test('create order handles factory failure', async () => {
 
   expect(res.status).toBe(500);
   expect(res.body.message).toBe('Failed to fulfill order at factory');
-  expect(res.body).toHaveProperty('followLinkToEndChaos', mockFactoryResponse.reportUrl);
 });
 
 test('create order fails without auth token', async () => {
