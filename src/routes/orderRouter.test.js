@@ -1,11 +1,12 @@
 const request = require('supertest');
 const { app, Role, createAndLoginUser, randomName } = require('./testHelper');
+const { DB } = require('../database/database');
 
 let adminAuthToken;
 let dinerAuthToken;
 
 // Mock the fetch function for factory API calls
-fetch = jest.fn();
+global.fetch = jest.fn();
 
 beforeAll(async () => {
   // Create admin user
@@ -113,6 +114,23 @@ test('get orders with page parameter', async () => {
 
 test('create order successfully', async () => {
   // Mock successful factory response
+  const pizzaName = randomName('Pizza');
+  const pepperoniName = randomName('Pepperoni');
+
+  await DB.addMenuItem({
+    title: pizzaName,
+    description: 'A garden of delight',
+    image: 'pizza-test.png',
+    price: 0.05,
+  });
+
+  await DB.addMenuItem({
+    title: pepperoniName,
+    description: 'Classic pepperoni',
+    image: 'pizza-test.png',
+    price: 0.042,
+  });
+
   const mockFactoryResponse = {
     reportUrl: 'https://pizza-factory.test/report/123',
     jwt: 'mock.jwt.token',
@@ -127,8 +145,8 @@ test('create order successfully', async () => {
     franchiseId: 1,
     storeId: 1,
     items: [
-      { menuId: 1, description: 'Veggie', price: 0.05 },
-      { menuId: 2, description: 'Pepperoni', price: 0.042 },
+      { menuId: 1, description: pizzaName, price: 0.05 },
+      { menuId: 2, description: pepperoniName, price: 0.042 },
     ],
   };
 
