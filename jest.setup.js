@@ -29,9 +29,3 @@ beforeAll(async () => {
   }
 });
 
-// Clean up after all tests
-afterAll(async () => {
-  // Drain the connection pool
-  const { DB } = require('./src/database/database');
-  // Note: The DB singleton will be garbage collected after tests complete
-});
