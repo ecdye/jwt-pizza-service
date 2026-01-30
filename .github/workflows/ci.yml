@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22.x'
 
@@ -47,7 +47,7 @@ jobs:
                 host: '127.0.0.1',
                 user: 'root',
                 password: 'tempdbpassword',
-                database: 'pizza',
+                database: 'pizza_test',
                 connectTimeout: 60000,
               },
               listPerPage: 10,
@@ -59,6 +59,8 @@ jobs:
           };" > src/config.js
 
       - name: Run Tests
+        env:
+          NODE_ENV: test
         run: npm test
 
       - name: Set Version
