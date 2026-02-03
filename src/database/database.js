@@ -34,6 +34,11 @@ class DB {
     try {
       const hashedPassword = await bcrypt.hash(user.password, 10);
 
+      const existingUser = await this.query(connection, `SELECT id FROM user WHERE email=?`, [user.email]);
+      if (existingUser.length > 0) {
+        throw new StatusCodeError('user already exists', 409);
+      }
+
       const userResult = await this.query(connection, `INSERT INTO user (name, email, password) VALUES (?, ?, ?)`, [user.name, user.email, hashedPassword]);
       const userId = userResult.insertId;
       for (const role of user.roles) {

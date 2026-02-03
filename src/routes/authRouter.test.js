@@ -56,6 +56,6 @@ test('login fails with missing credentials', async () => {
 test('register with duplicate email should fail', async () => {
         const duplicateUser = { name: 'Duplicate', email: testUser.email, password: 'password' };
         const res = await request(app).post('/api/auth').send(duplicateUser);
-        // Database allows duplicate emails currently - this is a bug but not blocking
-        expect([200, 400, 409, 500]).toContain(res.status);
+        expect(res.status).toBe(409);
+        expect(res.body.message).toBe('user already exists');
 });
