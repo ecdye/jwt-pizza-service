@@ -15,7 +15,7 @@ jobs:
         image: mysql:8.0.29
         env:
           MYSQL_ROOT_PASSWORD: tempdbpassword
-          MYSQL_DATABASE: pizza
+          MYSQL_DATABASE: pizza_test
         ports:
           - '3306:3306'
         options: >-
