@@ -1,11 +1,8 @@
-// Set NODE_ENV to test before anything else
-process.env.NODE_ENV = 'test';
-
+// Global setup runs once before all tests
 const mysql = require('mysql2/promise');
 const config = require('./src/config');
 
-// Global setup for all tests
-beforeAll(async () => {
+module.exports = async () => {
   console.log('Dropping test database to start fresh...');
 
   try {
@@ -26,6 +23,6 @@ beforeAll(async () => {
     }
   } catch (err) {
     console.error('Failed to drop test database:', err.message);
+    throw err;
   }
-});
-
+};
