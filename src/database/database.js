@@ -83,22 +83,36 @@ class DB {
   async updateUser(userId, name, email, password) {
     const connection = await this.getConnection();
     try {
+      const updates = [];
       const params = [];
       if (password) {
         const hashedPassword = await bcrypt.hash(password, 10);
-        params.push(`password='${hashedPassword}'`);
+        updates.push('password = ?');
+        params.push(hashedPassword);
       }
       if (email) {
-        params.push(`email='${email}'`);
+        updates.push('email = ?');
+        params.push(email);
       }
       if (name) {
-        params.push(`name='${name}'`);
+        updates.push('name = ?');
+        params.push(name);
       }
-      if (params.length > 0) {
-        const query = `UPDATE user SET ${params.join(', ')} WHERE id=${userId}`;
-        await this.query(connection, query);
+      if (updates.length > 0) {
+        params.push(userId);
+        const query = `UPDATE user SET ${updates.join(', ')} WHERE id = ?`;
+        await this.query(connection, query, params);
       }
-      return this.getUser(email, password);
+      const userResult = await this.query(connection, `SELECT * FROM user WHERE id = ?`, [userId]);
+      const user = userResult[0];
+      if (!user) {
+        throw new StatusCodeError('user not found', 404);
+      }
+      const roleResult = await this.query(connection, `SELECT * FROM userRole WHERE userId=?`, [user.id]);
+      const roles = roleResult.map((r) => {
+        return { objectId: r.objectId || undefined, role: r.role };
+      });
+      return { ...user, roles: roles, password: undefined };
     } finally {
       connection.end();
     }

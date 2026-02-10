@@ -93,6 +93,19 @@ authRouter.delete(
   })
 );
 
+// update user
+authRouter.put(
+  '/:userId',
+  authRouter.authenticateToken,
+  asyncHandler(async (req, res) => {
+    const userId = req.params.userId;
+    const { name, email, password } = req.body;
+    const user = await DB.updateUser(userId, name, email, password);
+    const auth = await setAuth(user);
+    res.json({ user: user, token: auth });
+  })
+);
+
 async function setAuth(user) {
   const token = jwt.sign(user, config.jwtSecret);
   await DB.loginUser(user.id, token);
