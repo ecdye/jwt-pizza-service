@@ -1,5 +1,5 @@
 const request = require('supertest');
-const { app, Role, createAdminUser, loginUser, createAndLoginUser } = require('./testHelper');
+const { app, Role, createAdminUser, loginUser, createAndLoginUser, createUser } = require('./testHelper');
 
 let testUser;
 let testUserAuthToken;
@@ -74,26 +74,40 @@ test('list users unauthorized', async () => {
   expect(listUsersRes.status).toBe(401);
 });
 
-test('list users', async () => {
-  const [, userToken] = await registerUser(request(app));
+test('list users, unauthorized for non-admin', async () => {
+  const user = await createAndLoginUser({ roles: [{ role: Role.Diner }] });
   const listUsersRes = await request(app)
     .get('/api/user')
-    .set('Authorization', 'Bearer ' + userToken);
-  expect(listUsersRes.status).toBe(200);
+    .set('Authorization', 'Bearer ' + user.token);
+  expect(listUsersRes.status).toBe(403);
 });
 
-async function registerUser(service) {
-  const testUser = {
-    name: 'pizza diner',
-    email: `${randomName()}@test.com`,
-    password: 'a',
-  };
-  const registerRes = await service.post('/api/auth').send(testUser);
-  registerRes.body.user.password = testUser.password;
+test('list users, authorized for admin', async () => {
+  const listUsersRes = await request(app)
+    .get('/api/user')
+    .set('Authorization', 'Bearer ' + testUserAuthToken);
+  expect(listUsersRes.status).toBe(200);
+  expect(listUsersRes.body.users.length).toBeGreaterThan(0);
+});
 
-  return [registerRes.body.user, registerRes.body.token];
-}
+test('delete user unauthorized', async () => {
+  const deleteRes = await request(app).delete(`/api/user/${testUserId}`);
+  expect(deleteRes.status).toBe(401);
+});
 
-function randomName() {
-  return Math.random().toString(36).substring(2, 12);
-}
+test('delete user, unauthorized for non-admin', async () => {
+  const user = await createAndLoginUser({ roles: [{ role: Role.Diner }] });
+  const deleteRes = await request(app)
+    .delete(`/api/user/${testUserId}`)
+    .set('Authorization', 'Bearer ' + user.token);
+  expect(deleteRes.status).toBe(403);
+});
+
+test('delete user, authorized for admin', async () => {
+  const user = await createUser({ roles: [{ role: Role.Diner }] });
+  const deleteRes = await request(app)
+    .delete(`/api/user/${user.id}`)
+    .set('Authorization', 'Bearer ' + testUserAuthToken);
+  expect(deleteRes.status).toBe(200);
+  expect(deleteRes.body.message).toBe('OK');
+});

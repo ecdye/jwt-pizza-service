@@ -128,6 +128,37 @@ class DB {
     }
   }
 
+  async getUsers(page, limit, nameFilter) {
+    const connection = await this.getConnection();
+    try {
+      const offset = this.getOffset(page, limit);
+      nameFilter = nameFilter ? nameFilter.replace(/\*/g, '%') : '%';
+      const users = await this.query(connection, `SELECT id, name, email FROM user WHERE name LIKE ? ORDER BY id DESC LIMIT ${limit + 1} OFFSET ${offset}`, [nameFilter]);
+
+      // Get roles for each user
+      for (const user of users) {
+        const roleResult = await this.query(connection, `SELECT role, objectId FROM userRole WHERE userId=?`, [user.id]);
+        const seenRoles = new Set();
+        user.roles = roleResult
+          .filter((r) => {
+            if (seenRoles.has(r.role)) {
+              return false;
+            }
+            seenRoles.add(r.role);
+            return true;
+          })
+          .map((r) => {
+            return { objectId: r.objectId || undefined, role: r.role };
+          });
+      }
+
+      const more = users.length > limit;
+      return more ? users.slice(0, limit) : users;
+    } finally {
+      connection.end();
+    }
+  }
+
   async isLoggedIn(token) {
     token = this.getTokenSignature(token);
     const connection = await this.getConnection();
@@ -144,6 +175,24 @@ class DB {
     const connection = await this.getConnection();
     try {
       await this.query(connection, `DELETE FROM auth WHERE token=?`, [token]);
+    } finally {
+      connection.end();
+    }
+  }
+
+  async deleteUser(userId) {
+    const connection = await this.getConnection();
+    try {
+      await connection.beginTransaction();
+      try {
+        await this.query(connection, `DELETE FROM auth WHERE userId=?`, [userId]);
+        await this.query(connection, `DELETE FROM userRole WHERE userId=?`, [userId]);
+        await this.query(connection, `DELETE FROM user WHERE id=?`, [userId]);
+        await connection.commit();
+      } catch {
+        await connection.rollback();
+        throw new StatusCodeError('unable to delete user', 500);
+      }
     } finally {
       connection.end();
     }
@@ -301,7 +350,7 @@ class DB {
   }
 
   getOffset(currentPage = 1, listPerPage) {
-    return (currentPage - 1) * [listPerPage];
+    return (currentPage - 1) * listPerPage;
   }
 
   getTokenSignature(token) {
