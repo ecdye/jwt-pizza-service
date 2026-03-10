@@ -222,7 +222,7 @@ if (process.env.NODE_ENV !== 'test' && endpointUrl) {
     // Note: activeUsers is a gauge and is NOT reset
 
     sendMetricToGrafana(metrics);
-  }, 60000);
+  }, 10 * 1000); // 10 s
 }
 
 function stopMetrics() {

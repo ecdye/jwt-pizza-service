@@ -5,3 +5,7 @@ config.js
 coverage
 dist
 generatePizzaData.sh
+generatePizzaTraffic.sh
+delete.sh
+deploy.sh
+cs329-jwt-pizza-stack.yaml
