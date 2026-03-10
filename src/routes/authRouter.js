@@ -5,7 +5,7 @@ const { asyncHandler } = require('../endpointHelper.js');
 const { DB, Role } = require('../database/database.js');
 
 const authRouter = express.Router();
-const { middleware: metricsMiddleware } = require('../metrics.js');
+const { middleware: metricsMiddleware, authAttempt, activeUserChange } = require('../metrics.js');
 authRouter.use(metricsMiddleware);
 
 authRouter.docs = [
@@ -63,11 +63,19 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const { name, email, password } = req.body;
     if (!name || !email || !password) {
+      authAttempt(false);
       return res.status(400).json({ message: 'name, email, and password are required' });
     }
-    const user = await DB.addUser({ name, email, password, roles: [{ role: Role.Diner }] });
-    const auth = await setAuth(user);
-    res.json({ user: user, token: auth });
+    try {
+      const user = await DB.addUser({ name, email, password, roles: [{ role: Role.Diner }] });
+      const auth = await setAuth(user);
+      authAttempt(true);
+      activeUserChange(1);
+      res.json({ user: user, token: auth });
+    } catch (err) {
+      authAttempt(false);
+      throw err;
+    }
   })
 );
 
@@ -77,11 +85,19 @@ authRouter.put(
   asyncHandler(async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) {
+      authAttempt(false);
       return res.status(400).json({ message: 'email and password are required' });
     }
-    const user = await DB.getUser(email, password);
-    const auth = await setAuth(user);
-    res.json({ user: user, token: auth });
+    try {
+      const user = await DB.getUser(email, password);
+      const auth = await setAuth(user);
+      authAttempt(true);
+      activeUserChange(1);
+      res.json({ user: user, token: auth });
+    } catch (err) {
+      authAttempt(false);
+      throw err;
+    }
   })
 );
 
@@ -91,6 +107,7 @@ authRouter.delete(
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
     await clearAuth(req);
+    activeUserChange(-1);
     res.json({ message: 'logout successful' });
   })
 );

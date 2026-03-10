@@ -1,6 +1,7 @@
 const config = require('./config');
+const os = require('os');
 
-// Metrics stored in memory
+// HTTP request metrics
 const requests = {};
 let totalRequests = 0;
 const methodCounts = {
@@ -11,10 +12,27 @@ const methodCounts = {
   OTHER: 0,
 };
 
-// (greetingChanged metric removed)
+// Auth metrics
+let authSuccessCount = 0;
+let authFailCount = 0;
 
-// Middleware to track requests
+// Active users gauge (not reset between intervals)
+let activeUsers = 0;
+
+// Pizza metrics
+let pizzaSoldCount = 0;
+let pizzaFailureCount = 0;
+let pizzaRevenue = 0;
+
+// Latency accumulators
+let endpointLatencySum = 0;
+let endpointLatencyCount = 0;
+let pizzaLatencySum = 0;
+let pizzaLatencyCount = 0;
+
+// Middleware to track requests and endpoint latency
 function requestTracker(req, res, next) {
+  const start = Date.now();
   const endpoint = `[${req.method}] ${req.path}`;
   requests[endpoint] = (requests[endpoint] || 0) + 1;
   // Track totals and method-specific counts
@@ -25,7 +43,50 @@ function requestTracker(req, res, next) {
   } else {
     methodCounts.OTHER++;
   }
+  res.on('finish', () => {
+    endpointLatencySum += Date.now() - start;
+    endpointLatencyCount++;
+  });
   next();
+}
+
+// Record an auth attempt result
+function authAttempt(success) {
+  if (success) {
+    authSuccessCount++;
+  } else {
+    authFailCount++;
+  }
+}
+
+// Adjust the active user count (delta: +1 for login/register, -1 for logout)
+function activeUserChange(delta) {
+  activeUsers = Math.max(0, activeUsers + delta);
+}
+
+// Record a pizza purchase (success flag, factory latency in ms, revenue in dollars)
+function pizzaPurchase(success, latency, revenue) {
+  if (success) {
+    pizzaSoldCount++;
+    pizzaRevenue += revenue;
+  } else {
+    pizzaFailureCount++;
+  }
+  pizzaLatencySum += latency;
+  pizzaLatencyCount++;
+}
+
+function getCpuUsagePercentage() {
+  const cpuUsage = os.loadavg()[0] / os.cpus().length;
+  return cpuUsage.toFixed(2) * 100;
+}
+
+function getMemoryUsagePercentage() {
+  const totalMemory = os.totalmem();
+  const freeMemory = os.freemem();
+  const usedMemory = totalMemory - freeMemory;
+  const memoryUsage = (usedMemory / totalMemory) * 100;
+  return memoryUsage.toFixed(2);
 }
 
 // Helper to construct Grafana/OpenTelemetry-style metric
@@ -121,10 +182,44 @@ if (process.env.NODE_ENV !== 'test' && endpointUrl) {
         metrics.push(createMetric('requests', methodCounts.OTHER, '1', 'sum', 'asInt', { method: 'OTHER' }));
     }
 
+    // Auth metrics
+    metrics.push(createMetric('authAttempts', authSuccessCount, '1', 'sum', 'asInt', { result: 'success' }));
+    metrics.push(createMetric('authAttempts', authFailCount, '1', 'sum', 'asInt', { result: 'failure' }));
+
+    // Active users (gauge - current value, not a counter)
+    metrics.push(createMetric('activeUsers', activeUsers, '1', 'gauge', 'asInt', {}));
+
+    // Pizza metrics
+    metrics.push(createMetric('pizzaSold', pizzaSoldCount, '1', 'sum', 'asInt', {}));
+    metrics.push(createMetric('pizzaFailures', pizzaFailureCount, '1', 'sum', 'asInt', {}));
+    metrics.push(createMetric('pizzaRevenue', pizzaRevenue, 'USD', 'sum', 'asDouble', {}));
+
+    // Latency metrics (average over the interval)
+    const avgEndpointLatency = endpointLatencyCount > 0 ? endpointLatencySum / endpointLatencyCount : 0;
+    const avgPizzaLatency = pizzaLatencyCount > 0 ? pizzaLatencySum / pizzaLatencyCount : 0;
+    metrics.push(createMetric('serviceLatency', avgEndpointLatency, 'ms', 'gauge', 'asDouble', {}));
+    metrics.push(createMetric('pizzaCreationLatency', avgPizzaLatency, 'ms', 'gauge', 'asDouble', {}));
+
+    // CPU and memory usage metrics
+    const cpuUsage = getCpuUsagePercentage();
+    const memoryUsage = getMemoryUsagePercentage();
+    metrics.push(createMetric('cpuUsage', cpuUsage, '%', 'gauge', 'asDouble', {}));
+    metrics.push(createMetric('memoryUsage', memoryUsage, '%', 'gauge', 'asDouble', {}));
+
     // Reset counters after pushing so the next interval reports per-minute deltas
     Object.keys(requests).forEach((k) => (requests[k] = 0));
     totalRequests = 0;
     Object.keys(methodCounts).forEach((k) => (methodCounts[k] = 0));
+    authSuccessCount = 0;
+    authFailCount = 0;
+    pizzaSoldCount = 0;
+    pizzaFailureCount = 0;
+    pizzaRevenue = 0;
+    endpointLatencySum = 0;
+    endpointLatencyCount = 0;
+    pizzaLatencySum = 0;
+    pizzaLatencyCount = 0;
+    // Note: activeUsers is a gauge and is NOT reset
 
     sendMetricToGrafana(metrics);
   }, 60000);
@@ -137,4 +232,4 @@ function stopMetrics() {
   }
 }
 
-module.exports = { requestTracker, middleware: requestTracker, stopMetrics };
+module.exports = { requestTracker, middleware: requestTracker, stopMetrics, authAttempt, activeUserChange, pizzaPurchase };
