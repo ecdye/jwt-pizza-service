@@ -5,6 +5,8 @@ const { asyncHandler } = require('../endpointHelper.js');
 const { DB, Role } = require('../database/database.js');
 
 const authRouter = express.Router();
+const { middleware: metricsMiddleware } = require('../metrics.js');
+authRouter.use(metricsMiddleware);
 
 authRouter.docs = [
   {

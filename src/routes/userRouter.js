@@ -4,6 +4,8 @@ const { DB, Role } = require('../database/database.js');
 const { authRouter, setAuth } = require('./authRouter.js');
 
 const userRouter = express.Router();
+const { middleware: metricsMiddleware } = require('../metrics.js');
+userRouter.use(metricsMiddleware);
 
 userRouter.docs = [
   {
