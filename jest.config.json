@@ -8,6 +8,7 @@
   },
   "testEnvironment": "node",
   "globalSetup": "<rootDir>/jest.globalSetup.js",
+  "globalTeardown": "<rootDir>/jest.globalTeardown.js",
   "testTimeout": 30000,
   "maxWorkers": 1
 }

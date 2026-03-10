@@ -60,6 +60,13 @@ function createMetric(metricName, metricValue, metricUnit, metricType, valueType
 
 // Send metrics to Grafana (or any configured endpoint)
 function sendMetricToGrafana(metrics) {
+  // If no endpoint configured, skip sending (useful for tests)
+  const endpointUrl = config.metrics?.endpointUrl || config.endpointUrl;
+  const accountId = config.metrics?.accountId || config.accountId;
+  const apiKey = config.metrics?.apiKey || config.apiKey;
+  if (!endpointUrl || !accountId || !apiKey) {
+    return;
+  }
   const body = {
     resourceMetrics: [
       {
@@ -72,10 +79,10 @@ function sendMetricToGrafana(metrics) {
     ],
   };
 
-  fetch(`${config.endpointUrl}`, {
+  fetch(`${endpointUrl}`, {
     method: 'POST',
     body: JSON.stringify(body),
-    headers: { Authorization: `Bearer ${config.accountId}:${config.apiKey}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${accountId}:${apiKey}`, 'Content-Type': 'application/json' },
   })
     .then((response) => {
       if (!response.ok) {
@@ -87,34 +94,47 @@ function sendMetricToGrafana(metrics) {
     });
 }
 
+let metricsInterval = null;
+
 // Periodically send metrics (per-minute to represent requests/minute)
-setInterval(() => {
-  const metrics = [];
+// Only start the interval when an endpoint is configured and not running under tests.
+const endpointUrl = config.metrics?.endpointUrl || config.endpointUrl;
+if (process.env.NODE_ENV !== 'test' && endpointUrl) {
+  metricsInterval = setInterval(() => {
+    const metrics = [];
 
-  // Per-endpoint counts (kept for compatibility)
-  Object.keys(requests).forEach((endpoint) => {
-    metrics.push(createMetric('requests', requests[endpoint], '1', 'sum', 'asInt', { endpoint }));
-  });
+    // Per-endpoint counts (kept for compatibility)
+    Object.keys(requests).forEach((endpoint) => {
+        metrics.push(createMetric('requests', requests[endpoint], '1', 'sum', 'asInt', { endpoint }));
+    });
 
-  // Total requests in the interval
-  metrics.push(createMetric('totalRequests', totalRequests, '1', 'sum', 'asInt', {}));
+    // Total requests in the interval
+    metrics.push(createMetric('totalRequests', totalRequests, '1', 'sum', 'asInt', {}));
 
-  // Requests by method (GET, POST, PUT, DELETE)
-  ['GET', 'POST', 'PUT', 'DELETE'].forEach((m) => {
-    metrics.push(createMetric('requests', methodCounts[m] || 0, '1', 'sum', 'asInt', { method: m }));
-  });
+    // Requests by method (GET, POST, PUT, DELETE)
+    ['GET', 'POST', 'PUT', 'DELETE'].forEach((m) => {
+        metrics.push(createMetric('requests', methodCounts[m] || 0, '1', 'sum', 'asInt', { method: m }));
+    });
 
-  // Also include other methods if present
-  if (methodCounts.OTHER > 0) {
-    metrics.push(createMetric('requests', methodCounts.OTHER, '1', 'sum', 'asInt', { method: 'OTHER' }));
+    // Also include other methods if present
+    if (methodCounts.OTHER > 0) {
+        metrics.push(createMetric('requests', methodCounts.OTHER, '1', 'sum', 'asInt', { method: 'OTHER' }));
+    }
+
+    // Reset counters after pushing so the next interval reports per-minute deltas
+    Object.keys(requests).forEach((k) => (requests[k] = 0));
+    totalRequests = 0;
+    Object.keys(methodCounts).forEach((k) => (methodCounts[k] = 0));
+
+    sendMetricToGrafana(metrics);
+  }, 60000);
+}
+
+function stopMetrics() {
+  if (metricsInterval) {
+    clearInterval(metricsInterval);
+    metricsInterval = null;
   }
+}
 
-  // Reset counters after pushing so the next interval reports per-minute deltas
-  Object.keys(requests).forEach((k) => (requests[k] = 0));
-  totalRequests = 0;
-  Object.keys(methodCounts).forEach((k) => (methodCounts[k] = 0));
-
-  sendMetricToGrafana(metrics);
-}, 60000);
-
-module.exports = { requestTracker, middleware: requestTracker };
+module.exports = { requestTracker, middleware: requestTracker, stopMetrics };
