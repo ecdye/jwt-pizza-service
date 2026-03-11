@@ -16,8 +16,9 @@ const methodCounts = {
 let authSuccessCount = 0;
 let authFailCount = 0;
 
-// Active users gauge (not reset between intervals)
-let activeUsers = 0;
+// Active users: map of userId -> lastActiveTimestamp
+const userActivity = new Map();
+const ACTIVE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 // Pizza metrics
 let pizzaSoldCount = 0;
@@ -46,6 +47,9 @@ function requestTracker(req, res, next) {
   res.on('finish', () => {
     endpointLatencySum += Date.now() - start;
     endpointLatencyCount++;
+    if (req.user?.id) {
+      userActivity.set(req.user.id, Date.now());
+    }
   });
   next();
 }
@@ -59,9 +63,24 @@ function authAttempt(success) {
   }
 }
 
-// Adjust the active user count (delta: +1 for login/register, -1 for logout)
-function activeUserChange(delta) {
-  activeUsers = Math.max(0, activeUsers + delta);
+// Mark a user as currently active (call on login/register and authenticated requests)
+function trackUserActivity(userId) {
+  userActivity.set(userId, Date.now());
+}
+
+// Remove a user from the activity map (call on logout)
+function clearUserActivity(userId) {
+  userActivity.delete(userId);
+}
+
+// Count users with activity within the active timeout window
+function getActiveUserCount() {
+  const cutoff = Date.now() - ACTIVE_TIMEOUT_MS;
+  let count = 0;
+  for (const lastActive of userActivity.values()) {
+    if (lastActive >= cutoff) count++;
+  }
+  return count;
 }
 
 // Record a pizza purchase (success flag, factory latency in ms, revenue in dollars)
@@ -186,8 +205,8 @@ if (process.env.NODE_ENV !== 'test' && endpointUrl) {
     metrics.push(createMetric('authAttempts', authSuccessCount, '1', 'sum', 'asInt', { result: 'success' }));
     metrics.push(createMetric('authAttempts', authFailCount, '1', 'sum', 'asInt', { result: 'failure' }));
 
-    // Active users (gauge - current value, not a counter)
-    metrics.push(createMetric('activeUsers', activeUsers, '1', 'gauge', 'asInt', {}));
+    // Active users (gauge - users with activity in the last 5 minutes)
+    metrics.push(createMetric('activeUsers', getActiveUserCount(), '1', 'gauge', 'asInt', {}));
 
     // Pizza metrics
     metrics.push(createMetric('pizzaSold', pizzaSoldCount, '1', 'sum', 'asInt', {}));
@@ -219,7 +238,7 @@ if (process.env.NODE_ENV !== 'test' && endpointUrl) {
     endpointLatencyCount = 0;
     pizzaLatencySum = 0;
     pizzaLatencyCount = 0;
-    // Note: activeUsers is a gauge and is NOT reset
+    // Note: userActivity map is NOT reset — active users are tracked by timestamp
 
     sendMetricToGrafana(metrics);
   }, 10 * 1000); // 10 s
@@ -232,4 +251,4 @@ function stopMetrics() {
   }
 }
 
-module.exports = { requestTracker, middleware: requestTracker, stopMetrics, authAttempt, activeUserChange, pizzaPurchase };
+module.exports = { requestTracker, middleware: requestTracker, stopMetrics, authAttempt, trackUserActivity, clearUserActivity, pizzaPurchase };

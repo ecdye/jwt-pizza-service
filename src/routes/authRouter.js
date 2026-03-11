@@ -5,7 +5,7 @@ const { asyncHandler } = require('../endpointHelper.js');
 const { DB, Role } = require('../database/database.js');
 
 const authRouter = express.Router();
-const { middleware: metricsMiddleware, authAttempt, activeUserChange } = require('../metrics.js');
+const { middleware: metricsMiddleware, authAttempt, trackUserActivity, clearUserActivity } = require('../metrics.js');
 authRouter.use(metricsMiddleware);
 
 authRouter.docs = [
@@ -70,7 +70,7 @@ authRouter.post(
       const user = await DB.addUser({ name, email, password, roles: [{ role: Role.Diner }] });
       const auth = await setAuth(user);
       authAttempt(true);
-      activeUserChange(1);
+      trackUserActivity(user.id);
       res.json({ user: user, token: auth });
     } catch (err) {
       authAttempt(false);
@@ -92,7 +92,7 @@ authRouter.put(
       const user = await DB.getUser(email, password);
       const auth = await setAuth(user);
       authAttempt(true);
-      activeUserChange(1);
+      trackUserActivity(user.id);
       res.json({ user: user, token: auth });
     } catch (err) {
       authAttempt(false);
@@ -107,7 +107,7 @@ authRouter.delete(
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
     await clearAuth(req);
-    activeUserChange(-1);
+    clearUserActivity(req.user.id);
     res.json({ message: 'logout successful' });
   })
 );
