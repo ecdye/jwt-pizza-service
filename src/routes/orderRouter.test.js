@@ -162,12 +162,11 @@ test('create order successfully', async () => {
   expect(res.body).toHaveProperty('jwt', mockFactoryResponse.jwt);
   expect(res.body).toHaveProperty('followLinkToEndChaos', mockFactoryResponse.reportUrl);
 
-  // Verify fetch was called with correct parameters
-  expect(fetch).toHaveBeenCalledTimes(1);
-  const fetchCall = fetch.mock.calls[0];
-  expect(fetchCall[0]).toContain('/api/order');
-  expect(fetchCall[1].method).toBe('POST');
-  expect(fetchCall[1].headers['Content-Type']).toBe('application/json');
+  // Verify fetch was called with factory URL
+  const factoryCall = fetch.mock.calls.find(call => call[0].includes('/api/order'));
+  expect(factoryCall).toBeDefined();
+  expect(factoryCall[1].method).toBe('POST');
+  expect(factoryCall[1].headers['Content-Type']).toBe('application/json');
 });
 
 test('create order handles factory failure', async () => {
@@ -207,7 +206,9 @@ test('create order fails without auth token', async () => {
   const res = await request(app).post('/api/order').send(orderRequest);
 
   expect(res.status).toBe(401);
-  expect(fetch).not.toHaveBeenCalled();
+  // Verify no factory fetch was made (logger fetch calls are expected)
+  const factoryCall = fetch.mock.calls.find(call => call[0]?.includes('/api/order'));
+  expect(factoryCall).toBeUndefined();
 });
 
 test('create order with empty items', async () => {
