@@ -38,12 +38,13 @@
         "displayedFields": [
           "type",
           "method",
+          "authorized",
           "statusCode",
           "path",
           "reqBody",
           "resBody",
           "query",
-          "authorized"
+          "message"
         ],
         "enableInfiniteScrolling": false,
         "enableLogDetails": false,
@@ -68,7 +69,7 @@
           },
           "direction": "backward",
           "editorMode": "builder",
-          "expr": "{component=\"jwt-pizza-service-dev\"} | json",
+          "expr": "{component=\"jwt-pizza-service\"} | json",
           "key": "Q-e33756f8-ac7e-479e-b420-39b180939fce-0",
           "queryType": "range",
           "refId": "A"
@@ -891,7 +892,7 @@
   "timezone": "browser",
   "title": "JWT Pizza Service Dashboard",
   "weekStart": "",
-  "version": 34,
+  "version": 36,
   "uid": "ecsjx6w",
   "id": 373862588538880
 }

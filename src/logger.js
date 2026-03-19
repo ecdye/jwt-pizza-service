@@ -12,8 +12,8 @@ class Logger {
         path: req.originalUrl,
         method: req.method,
         statusCode: res.statusCode,
-        reqBody: JSON.stringify(req.body),
-        resBody: JSON.stringify(resBody),
+        reqBody: req.body,
+        resBody: typeof resBody === 'string' ? this._tryParseJson(resBody) : resBody,
       };
       const level = this._statusToLogLevel(res.statusCode);
       this.log('http', level, logData);
@@ -55,6 +55,14 @@ class Logger {
     if (statusCode >= 500) return 'error';
     if (statusCode >= 400) return 'warn';
     return 'info';
+  }
+
+  _tryParseJson(str) {
+    try {
+      return JSON.parse(str);
+    } catch {
+      return str;
+    }
   }
 
   _sanitize(logData) {
