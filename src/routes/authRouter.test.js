@@ -47,6 +47,13 @@ test('register fails with missing password', async () => {
         expect(res.body.message).toBe('name, email, and password are required');
 });
 
+test('login fails when user does not exist', async () => {
+        const res = await request(app).put('/api/auth').send({ email: 'nonexistent@test.com', password: 'password' });
+        expect(res.status).toBe(404);
+        expect(res.body.message).toBe('unknown user');
+});
+
+
 test('login fails with missing credentials', async () => {
         const res = await request(app).put('/api/auth').send({});
         expect(res.status).toBe(400);

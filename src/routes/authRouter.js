@@ -96,6 +96,9 @@ authRouter.put(
       res.json({ user: user, token: auth });
     } catch (err) {
       authAttempt(false);
+      if (err.statusCode === 404) {
+        return res.status(404).json({ message: err.message });
+      }
       throw err;
     }
   })
